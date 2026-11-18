@@ -74,12 +74,14 @@ def _avvisi_in_pagina(f: Fonte, url_pagina: str, pagina: str, visti: set) -> lis
         if len(visti) > MAX_LINK:
             break
         testo = ""
+        e_pdf = False
         rr = None
         if "spaggiari.eu" not in url:            # i documenti su Spaggiari non si scaricano: link nella mail
             rr = _apri(url)
         if rr is not None and rr.status_code == 200:
             if rr.content[:4] == b"%PDF":
                 testo = testo_pdf(rr.content)
+                e_pdf = True
             elif "html" in rr.headers.get("content-type", ""):
                 testo = pulisci(re.sub(r"<[^>]+>", " ", rr.text))[:20000]
         scad = scadenza_da(f"{titolo}\n{testo}") or fine
@@ -99,7 +101,8 @@ def _avvisi_in_pagina(f: Fonte, url_pagina: str, pagina: str, visti: set) -> lis
             link_candidatura=f"mailto:{email}" if email else url,
             classi=classi, ordine=ordine_da(classi, f"{titolo}\n{testo}"),
             ore=ore_da(titolo) or ore_da(testo), scadenza=scad, email_candidatura=email,
-            note="" if scad else "Scadenza: vedi avviso",
+            note=("" if scad else "Scadenza: vedi avviso") if e_pdf or "spaggiari.eu" in url else
+                 "Notizia sul sito, senza bando allegato: da verificare con la segreteria",
         ))
     return out
 
