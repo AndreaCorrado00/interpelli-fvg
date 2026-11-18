@@ -131,7 +131,7 @@ def main() -> int:
     for d in conf["destinatari"]:
         miei = riepilogo.filtra(aperti, d)
         oggetto, corpo_html, corpo_txt = riepilogo.componi(d, miei, aperti, stato, materie, errori, n_fonti)
-        if args.prova or not d.get("email"):
+        if args.prova or not d.get("email") or not d.get("attivo", True):
             out = RADICE / f"riepilogo_{d['nome'].lower()}.html"
             out.write_text(corpo_html, encoding="utf-8")
             print(f"\n===== {d['nome']}: {oggetto}\n{corpo_txt}")

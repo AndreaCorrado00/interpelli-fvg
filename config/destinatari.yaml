@@ -1,16 +1,19 @@
 # Chi riceve il riepilogo e con quali filtri.
+#  attivo:  false = il riepilogo non viene inviato (solo scritto nel log)
 #  classi:  classi di concorso da cercare (vuoto = tutte)
 #  ordini:  secondaria_1 = medie, secondaria_2 = superiori (aggiungere primaria/infanzia se servono)
-#  email:   se vuota, il riepilogo viene solo scritto su file (utile per le prove)
 #  mostra_senza_classe: elenca anche gli interpelli in cui la classe di concorso non è nel titolo
 destinatari:
   - nome: Andrea
-    email: ""
-    classi: [A028, A026]
+    email: corradoandrea00@gmail.com
+    attivo: true
+    # A028 e A026 + classi tecnico-scientifiche (da verificare con la tabella del DM 259/2017 per la LM-21)
+    classi: [A028, A026, A020, A027, A034, A037, A040, A041, A042, A047, A050, A060]
     ordini: [secondaria_1, secondaria_2]
     mostra_senza_classe: true
-  - nome: Compagna
-    email: ""
-    classi: []
+  - nome: Maria
+    email: maria.sepulcri.08@gmail.com
+    attivo: false          # da attivare dopo il collaudo
+    classi: [A012]
     ordini: [secondaria_1, secondaria_2]
     mostra_senza_classe: true
