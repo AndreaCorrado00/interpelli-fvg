@@ -33,10 +33,30 @@ def _attendi() -> None:
     _ultima = time.monotonic()
 
 
+MAX_SECONDI = 60          # tempo massimo per scaricare una singola risorsa
+MAX_BYTE = 15_000_000
+
+
+def _scarica(url: str, timeout: int, **kw) -> requests.Response:
+    """GET con limite di tempo complessivo: un server lentissimo non blocca tutto il controllo."""
+    r = _sessione.get(url, timeout=(10, timeout), stream=True, **kw)
+    fine = time.monotonic() + MAX_SECONDI
+    dati = bytearray()
+    try:
+        for blocco in r.iter_content(65536):
+            dati += blocco
+            if time.monotonic() > fine or len(dati) > MAX_BYTE:
+                raise requests.Timeout(f"download troppo lento o troppo grande: {url}")
+    finally:
+        r.close()
+    r._content = bytes(dati)
+    return r
+
+
 def _grezzo(url: str) -> Optional[requests.Response]:
     _attendi()
     try:
-        return _sessione.get(url, timeout=15)
+        return _scarica(url, 15)
     except requests.RequestException:
         return None
 
@@ -48,7 +68,7 @@ def get(url: str, *, timeout: int = 30, tentativi: int = 2, **kw) -> Optional[re
     for i in range(tentativi):
         _attendi()
         try:
-            r = _sessione.get(url, timeout=timeout, **kw)
+            r = _scarica(url, timeout, **kw)
         except requests.RequestException:
             if i + 1 == tentativi:
                 return None
@@ -66,6 +86,6 @@ def post_json(url: str, dati: dict, *, timeout: int = 30) -> Optional[requests.R
         raise VietatoDaRobots(url)
     _attendi()
     try:
-        return _sessione.post(url, json=dati, timeout=timeout)
+        return _sessione.post(url, json=dati, timeout=(10, timeout))
     except requests.RequestException:
         return None

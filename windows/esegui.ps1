@@ -19,7 +19,7 @@ Scrivi "Rete disponibile dopo $($i * 10) secondi."
 # Configurazione e filtri si modificano su GitHub: prima di ogni controllo scarico le modifiche
 Scrivi (git pull --rebase --autostash 2>&1)
 
-Scrivi (& ".\.venv\Scripts\python.exe" -m interpelli 2>&1)
+& ".\.venv\Scripts\python.exe" -m interpelli 2>&1 | ForEach-Object { Scrivi $_ }
 $esito = $LASTEXITCODE
 Scrivi "Fine controllo, esito $esito."
 
