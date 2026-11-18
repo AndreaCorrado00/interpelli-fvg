@@ -1,0 +1,16 @@
+# Chi riceve il riepilogo e con quali filtri.
+#  classi:  classi di concorso da cercare (vuoto = tutte)
+#  ordini:  secondaria_1 = medie, secondaria_2 = superiori (aggiungere primaria/infanzia se servono)
+#  email:   se vuota, il riepilogo viene solo scritto su file (utile per le prove)
+#  mostra_senza_classe: elenca anche gli interpelli in cui la classe di concorso non è nel titolo
+destinatari:
+  - nome: Andrea
+    email: ""
+    classi: [A028, A026]
+    ordini: [secondaria_1, secondaria_2]
+    mostra_senza_classe: true
+  - nome: Compagna
+    email: ""
+    classi: []
+    ordini: [secondaria_1, secondaria_2]
+    mostra_senza_classe: true

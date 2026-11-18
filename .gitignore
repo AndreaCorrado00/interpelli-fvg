@@ -1,0 +1,4 @@
+__pycache__/
+*.pyc
+riepilogo_*.html
+.venv/

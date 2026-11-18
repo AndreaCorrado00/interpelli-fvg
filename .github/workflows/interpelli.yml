@@ -1,0 +1,58 @@
+name: Interpelli FVG
+
+on:
+  schedule:
+    # Orari in UTC: 06:30 e 16:00 UTC = 7:30 e 17:00 ora italiana d'inverno (8:30 e 18:00 con l'ora legale).
+    # GitHub può avviare le esecuzioni programmate con qualche minuto di ritardo.
+    - cron: "30 6 * * *"
+    - cron: "0 16 * * *"
+  workflow_dispatch:
+    inputs:
+      prova:
+        description: "Solo prova (non manda mail, mostra il riepilogo nel log)"
+        type: boolean
+        default: false
+
+permissions:
+  contents: write   # serve per salvare stato/visti.json (interpelli già segnalati)
+
+concurrency:
+  group: interpelli
+  cancel-in-progress: false
+
+jobs:
+  controlla:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -r requirements.txt
+      - name: Cerca interpelli e invia il riepilogo
+        env:
+          GMAIL_USER: ${{ secrets.GMAIL_USER }}
+          GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
+          TZ: Europe/Rome
+        run: |
+          if [ "${{ inputs.prova }}" = "true" ]; then
+            python -m interpelli --prova
+          else
+            python -m interpelli
+          fi
+      - name: Salva lo stato
+        if: ${{ inputs.prova != true }}
+        run: |
+          git config user.name "interpelli-bot"
+          git config user.email "interpelli-bot@users.noreply.github.com"
+          git add stato/visti.json
+          git diff --cached --quiet || git commit -m "Aggiorna interpelli già segnalati"
+          git push
+      - name: Conserva il riepilogo di prova
+        if: ${{ inputs.prova == true }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: riepilogo
+          path: riepilogo_*.html
