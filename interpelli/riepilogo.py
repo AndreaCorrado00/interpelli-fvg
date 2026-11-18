@@ -93,6 +93,23 @@ def _tabella_html(elenco: list[Interpello], materie, nuovi: set) -> str:
             f"<tr>{th}</tr>{''.join(righe)}</table>")
 
 
+def livelli_scuola(f) -> set:
+    """Medie (IC), superiori o entrambe (omnicomprensivi), dal codice meccanografico e dal nome."""
+    if "omnicomprensiv" in f.istituto.lower():
+        return {"secondaria_1", "secondaria_2"}
+    if f.codice_mecc[2:4] in ("IC", "MM", "EE", "AA"):
+        return {"secondaria_1"}
+    return {"secondaria_2"}
+
+
+def a_mano_per(d, a_mano) -> list:
+    ordini = set(d.get("ordini") or ["secondaria_1", "secondaria_2"])
+    escludi = [x.lower() for x in d.get("escludi_a_mano") or []]
+    return [f for f in a_mano or []
+            if livelli_scuola(f) & ordini
+            and not any(x in f"{f.istituto} {f.note}".lower() for x in escludi)]
+
+
 def componi(d: dict, miei: tuple, tutti_aperti: list, stato: dict, materie: dict, errori: list[str],
             n_fonti: int, a_mano: list | None = None) -> tuple[str, str, str]:
     ok, dubbi = miei
@@ -124,6 +141,7 @@ def componi(d: dict, miei: tuple, tutti_aperti: list, stato: dict, materie: dict
                    "scritta nel titolo, da controllare:</p>")
         htm.append(_tabella_html(dubbi, materie, nuovi))
 
+    a_mano = a_mano_per(d, a_mano)
     if a_mano:
         txt.append(f"\nScuole senza una fonte leggibile in automatico ({len(a_mano)}): "
                    "gli interpelli sono solo sull'albo online, da controllare a mano.")
