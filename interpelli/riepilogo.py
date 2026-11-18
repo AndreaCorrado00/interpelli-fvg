@@ -100,7 +100,9 @@ def componi(d: dict, miei: tuple, tutti_aperti: list, stato: dict, materie: dict
     oggi = date.today().strftime("%d/%m/%Y")
     classi = ", ".join(d.get("classi") or []) or "tutte le classi di concorso"
     if ok:
-        oggetto = f"Interpelli aperti {oggi}: {len(ok)}" + (f" ({len(nuovi)} nuovi)" if nuovi else "")
+        nuovi_ok = sum(1 for it in ok if it.chiave in nuovi)
+        oggetto = (f"Interpelli aperti {oggi}: {len(ok)}" + (f" ({nuovi_ok} nuovi)" if nuovi_ok else "")
+                   + (f", {len(dubbi)} da controllare" if dubbi else ""))
     else:
         oggetto = f"Interpelli {oggi}: non ci sono interpelli aperti oggi"
 
@@ -132,7 +134,8 @@ def componi(d: dict, miei: tuple, tutti_aperti: list, stato: dict, materie: dict
                    f"({len(a_mano)}): pubblicano gli interpelli solo sull'albo online, da controllare a mano.</p>"
                    f"<ul style='font-size:13px'>{voci}</ul>")
 
-    pie = (f"Fonti controllate: {n_fonti - len(errori)} su {n_fonti}. "
+    pie = (f"Fonti raggiunte: {n_fonti - len(errori)} su {n_fonti}; "
+           f"scuole senza lettura automatica: {len(a_mano or [])}. "
            f"Interpelli aperti per medie e superiori in totale: "
            f"{sum(1 for x in tutti_aperti if x.ordine not in ('infanzia', 'primaria'))}.")
     txt.append("\n" + pie)

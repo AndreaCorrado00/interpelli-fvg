@@ -60,8 +60,13 @@ def _avvisi_in_pagina(f: Fonte, url_pagina: str, pagina: str, visti: set) -> lis
         url = urljoin(url_pagina, html.unescape(href))
         if url in visti or len(titolo) < 12 or not e_interpello_docenti(titolo):
             continue
-        if _GENERICO.match(titolo.strip(" .:")) or re.search(r"/sdg2/Interpelli/\w+/?$|cerca\?tag=", url):
-            continue   # voce di menu o pagina indice, non un avviso
+        if (_GENERICO.match(titolo.strip(" .:"))
+                or re.search(r"/sdg2/Interpelli/\w+/?$|cerca\?tag=|/albo-online|interpello-nazionale", url, re.I)
+                or not e_interpello_docenti(url.rsplit("/", 1)[-1].replace("-", " ") + " interpello")):
+            continue   # voce di menu, pagina indice o modulistica, non un avviso
+        wp = re.search(r"/uploads/(20\d{2})/(\d{2})/", url)
+        if wp and datetime(int(wp.group(1)), int(wp.group(2)), 1) < oggi - timedelta(days=60):
+            continue   # file caricato da più di due mesi
         fine = _data_fine(titolo) or _data_fine(url)
         if fine and fine < oggi:
             continue
@@ -77,13 +82,16 @@ def _avvisi_in_pagina(f: Fonte, url_pagina: str, pagina: str, visti: set) -> lis
                 testo = testo_pdf(rr.content)
             elif "html" in rr.headers.get("content-type", ""):
                 testo = pulisci(re.sub(r"<[^>]+>", " ", rr.text))[:20000]
-        scad = scadenza_da(f"{titolo}\n{testo}")
+        scad = scadenza_da(f"{titolo}\n{testo}") or fine
         if scad and scad < oggi:
             continue
         recente = _data_piu_recente(f"{titolo} {testo}")
         if not scad and recente and recente < oggi - timedelta(days=30):
             continue   # avviso vecchio rimasto in pagina
-        classi = classi_concorso(titolo) or classi_concorso(testo)
+        classi = classi_concorso(f"{titolo} {url}") or classi_concorso(testo)
+        specifico = bool(re.search(r"/sdg2/Interpelli/\w+/[0-9a-f-]{36}", url))
+        if not classi and not scad and not specifico and not (recente and recente >= oggi - timedelta(days=30)):
+            continue   # nessuna classe, nessuna data: pagina generica o avviso vecchio
         email = email_da(testo)
         out.append(Interpello(
             istituto=f.istituto, provincia=f.provincia, codice_mecc=f.codice_mecc,

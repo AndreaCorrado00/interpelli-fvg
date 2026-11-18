@@ -21,7 +21,7 @@ ESCLUDI = re.compile(
     r"decreto\s+di\s+nomina|nomina\s+commission|commissione|collaborator\w*\s+scolastic|\bcs\b|"
     r"assistent\w*\s+(tecnic|amministrativ)|\bata\b|dsga|\bd\.s\.g\.a|funzionari|esperto|esperti|tutor|"
     r"animatore|informativa|privacy|modello\s+di\s+domanda|modulo\s+domanda|dispositivo\s+(di\s+)?convocazione|"
-    r"assegnazione|presa\s+di\s+servizio|contratto\s+a\s+t",
+    r"assegnazione|presa\s+di\s+servizio|contratto\s+a\s+t|interpello[\s-]+nazionale|allegat[oi][\s-]*\d|modulistic",
     re.I,
 )
 
@@ -40,6 +40,7 @@ _CDC_2 = re.compile(r"(?:classe\s+di\s+concorso|cl(?:asse)?\.?\s*(?:di\s+)?conc\
 
 
 def classi_concorso(testo: str) -> list[str]:
+    testo = testo.replace("_", " ").replace("%20", " ")
     trovate: list[str] = []
     for m in _CDC_2.finditer(testo):
         trovate.append(f"{m.group(1).upper()}{int(m.group(2)):03d}")
@@ -142,12 +143,16 @@ def scadenza_da(testo: str, dopo: Optional[date] = None) -> Optional[datetime]:
 _EMAIL = re.compile(r"[\w.+-]+@(?:pec\.)?istruzione\.it|[\w.+-]+@[\w-]+\.(?:edu\.)?it", re.I)
 
 
+_EMAIL_SCUOLA = re.compile(r"[\w.+-]+@(?:pec\.)?istruzione\.it|[\w.+-]+@[\w-]+\.edu\.it", re.I)
+
+
 def email_da(testo: str) -> str:
-    m = re.search(r"(?:istanz|domand|candidatur|inviare|inoltrare|mail)[^@]{0,120}?(" + _EMAIL.pattern + ")",
+    """Solo indirizzi della scuola (istruzione.it o .edu.it): niente mail di fornitori dal piè di pagina."""
+    m = re.search(r"(?:istanz|domand|candidatur|inviare|inoltrare|mail)[^@]{0,120}?(" + _EMAIL_SCUOLA.pattern + ")",
                   testo, re.I)
     if m:
         return m.group(1).lower()
-    m = _EMAIL.search(testo)
+    m = _EMAIL_SCUOLA.search(testo)
     return m.group(0).lower() if m else ""
 
 
