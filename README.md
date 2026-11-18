@@ -1,7 +1,7 @@
 # Interpelli FVG
 
 Controllo automatico degli interpelli per docenti nelle scuole medie e superiori delle province di
-Udine, Pordenone e Gorizia. Due volte al giorno (circa 7:30 e 17:00) manda a ogni destinatario una
+Udine, Pordenone e Gorizia. Due volte al giorno (circa 8:15 e 17:00) manda a ogni destinatario una
 mail con gli interpelli **ancora aperti** per le sue classi di concorso: istituto, classe di concorso,
 materia, ore, scadenza e link per candidarsi. Se non ce ne sono, la mail dice "non ci sono interpelli
 aperti oggi".

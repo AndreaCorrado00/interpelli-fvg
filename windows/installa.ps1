@@ -57,11 +57,11 @@ if (-not [Environment]::GetEnvironmentVariable("GMAIL_APP_PASSWORD","User")) {
 }
 Write-Host "Credenziali salvate per il tuo utente Windows."
 
-Passo "6/6 Programmo i controlli alle 7:30 e alle 17:00"
+Passo "6/6 Programmo i controlli alle 8:15 e alle 17:00"
 $Esegui = Join-Path $Cartella "windows\esegui.ps1"
 $Azione = New-ScheduledTaskAction -Execute "powershell.exe" `
   -Argument "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$Esegui`""
-$Orari = @( (New-ScheduledTaskTrigger -Daily -At 7:30am), (New-ScheduledTaskTrigger -Daily -At 5:00pm) )
+$Orari = @( (New-ScheduledTaskTrigger -Daily -At 8:15am), (New-ScheduledTaskTrigger -Daily -At 5:00pm) )
 # StartWhenAvailable: se il computer era spento all'ora prevista, il controllo parte appena si accende
 $Opzioni = New-ScheduledTaskSettingsSet -StartWhenAvailable -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries `
   -ExecutionTimeLimit (New-TimeSpan -Minutes 45) -MultipleInstances IgnoreNew
