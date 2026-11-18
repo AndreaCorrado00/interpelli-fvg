@@ -1,11 +1,9 @@
 name: Interpelli FVG
 
+# Le esecuzioni programmate girano sul computer di casa (vedi windows/installa.ps1):
+# dai server di GitHub Spaggiari e Axios bloccano le richieste.
+# Questo workflow resta solo per prove manuali sulle fonti che rispondono anche da qui.
 on:
-  schedule:
-    # Orari in UTC: 06:30 e 16:00 UTC = 7:30 e 17:00 ora italiana d'inverno (8:30 e 18:00 con l'ora legale).
-    # GitHub può avviare le esecuzioni programmate con qualche minuto di ritardo.
-    - cron: "30 6 * * *"
-    - cron: "0 16 * * *"
   workflow_dispatch:
     inputs:
       prova:
