@@ -9,7 +9,7 @@ destinatari:
     email: corradoandrea00@gmail.com
     attivo: true
     # A028 e A026 + classi tecnico-scientifiche (da verificare con la tabella del DM 259/2017 per la LM-21)
-    classi: [A028, A026, A020, A027, A034, A037, A040, A041, A042, A047, A050, A060]
+    classi: [A028, A026, A020, A027, A034, A037, A040, A041, A042, A047, A050, A060, ADMM, ADSS]   # ADMM/ADSS = sostegno medie/superiori
     ordini: [secondaria_1, secondaria_2]
     mostra_senza_classe: true
     escludi_a_mano: [lingua slovena]

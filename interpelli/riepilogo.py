@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import csv
 import html
+import re
 from datetime import date
 from pathlib import Path
 
@@ -18,6 +19,14 @@ def carica_materie(percorso: Path) -> dict[str, str]:
         return {r["codice"].strip().upper(): r["materia"].strip() for r in csv.DictReader(fh)}
 
 
+def classi_effettive(it: Interpello) -> set:
+    """Classi dell'interpello; se il titolo parla di sostegno senza codice, ADMM/ADSS secondo l'ordine di scuola."""
+    c = set(it.classi)
+    if not c & {"ADMM", "ADSS"} and re.search(r"sostegn", f"{it.titolo} {it.classe_testo}", re.I):
+        c |= {"secondaria_1": {"ADMM"}, "secondaria_2": {"ADSS"}}.get(it.ordine, {"ADMM", "ADSS"})
+    return c
+
+
 def filtra(aperti: list[Interpello], d: dict) -> tuple[list[Interpello], list[Interpello]]:
     """(interpelli delle classi del destinatario, interpelli senza classe riconosciuta da controllare)."""
     ordini = set(d.get("ordini") or ORDINI_DEFAULT)
@@ -30,7 +39,7 @@ def filtra(aperti: list[Interpello], d: dict) -> tuple[list[Interpello], list[In
             continue
         if not classi:
             (ok if it.classi or it.classe_testo else dubbi).append(it)
-        elif set(it.classi) & classi:
+        elif classi_effettive(it) & classi:
             ok.append(it)
         elif not it.classi and d.get("mostra_senza_classe", True):
             dubbi.append(it)
