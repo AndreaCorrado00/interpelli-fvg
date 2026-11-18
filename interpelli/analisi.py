@@ -12,7 +12,8 @@ from pypdf import PdfReader
 
 INCLUDI = re.compile(
     r"interpell|supplenz\w*\s+fuori\s+graduatori|reperimento\s+di\s+(personale\s+)?docent|"
-    r"avviso\s+(pubblico\s+)?per\s+(il\s+)?(conferimento|reclutamento)\s+di\s+(una\s+)?supplenz",
+    r"avviso\s+(pubblico\s+)?per\s+(il\s+)?(conferimento|reclutamento)\s+di\s+(una\s+)?supplenz|"
+    r"(avviso|ricerca|disponibilit\w*|richiesta)\b.{0,40}supplenz|supplenz\w*\s+(docent|temporane|brev|annual|fino\s+al|per\s+(la\s+)?(classe|cdc|c\.d\.c))",
     re.I,
 )
 ESCLUDI = re.compile(
