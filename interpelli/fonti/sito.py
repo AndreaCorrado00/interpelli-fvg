@@ -1,10 +1,15 @@
-"""Pagine 'interpelli' sui siti delle scuole: elenco di link ad avvisi (PDF o pagine)."""
+"""Siti delle scuole: pagine 'interpelli' e link ad avvisi di interpello nelle sezioni consentite dal robots.txt.
+
+Tipi di fonte:
+  sito    -> rif è l'indirizzo di una pagina interpelli nota
+  scuola  -> rif è la home del sito: si leggono la home e, se esistono, le pagine interpelli più comuni
+"""
 from __future__ import annotations
 
 import html
 import re
 from datetime import datetime, timedelta
-from urllib.parse import urljoin
+from urllib.parse import urljoin, urlsplit
 
 from .. import rete
 from ..analisi import (classi_concorso, e_interpello_docenti, email_da, ordine_da, ore_da, pulisci,
@@ -12,28 +17,16 @@ from ..analisi import (classi_concorso, e_interpello_docenti, email_da, ordine_d
 from ..modello import Fonte, Interpello
 
 _A = re.compile(r"<a\b[^>]*href=[\"']([^\"']+)[\"'][^>]*>(.*?)</a>", re.S | re.I)
-_CODICE_SPAGGIARI = re.compile(r"(?:sede_codice=|custcode=|/sdg2/\w+/|scaling\.spaggiari\.eu/|cspace\.spaggiari\.eu//?pub/|"
-                               r"meta-pvw-sede_codice\"\s+content=\")([A-Za-z]{4}\d{4})")
+_FINO_AL = re.compile(r"fino\s+al?\s*(\d{1,2})[/.\-]?(\d{1,2})[/.\-]?(\d{4})", re.I)
+_DATE = re.compile(r"\b(\d{1,2})[/.\-](\d{1,2})[/.\-](20\d{2})\b")
+_GENERICO = re.compile(r"^(avvisi\s+e\s+)?interpell[oi](\s+(supplenze|docenti|news|ex\s*mad|info|scuola))?$", re.I)
+PAGINE_TIPICHE = ["/pagine/interpelli", "/pagine/interpello", "/pagine/interpelli-supplenze",
+                  "/pagine/avvisi-e-interpelli", "/interpelli/", "/servizio/interpelli/"]
 MAX_LINK = 15
 
 
-def codice_spaggiari(testo_html: str) -> str:
-    for m in _CODICE_SPAGGIARI.finditer(testo_html):
-        c = m.group(1).upper()
-        if c != "PVW0":
-            return c
-    return ""
-
-
-_FINO_AL = re.compile(r"fino\s+al?\s*(\d{1,2})[/.\-]?(\d{1,2})[/.\-]?(\d{4})", re.I)
-_DATE = re.compile(r"\b(\d{1,2})[/.\-](\d{1,2})[/.\-](20\d{2})\b")
-_GENERICO = re.compile(r"^(avvisi\s+e\s+)?interpell[oi](\s+(supplenze|docenti|news|ex\s*mad|info))?$", re.I)
-
-
-def _data_fine_nel_titolo(titolo_o_url: str):
-    m = _FINO_AL.search(titolo_o_url.replace("-", " "))
-    if not m:
-        m = re.search(r"fino-al-(\d{2})(\d{2})(\d{4})", titolo_o_url)
+def _data_fine(testo: str):
+    m = _FINO_AL.search(testo.replace("-", " ")) or re.search(r"fino-al-(\d{2})(\d{2})(\d{4})", testo)
     if m:
         try:
             return datetime(int(m.group(3)), int(m.group(2)), int(m.group(1)), 23, 59)
@@ -52,30 +45,33 @@ def _data_piu_recente(testo: str):
     return max(date) if date else None
 
 
-def leggi(f: Fonte) -> tuple[list[Interpello], str]:
-    """Restituisce gli interpelli trovati e l'eventuale codice Spaggiari scoperto nella pagina."""
-    r = rete.get(f.rif)
-    if r is None or r.status_code != 200:
-        raise RuntimeError(f"pagina del sito non raggiungibile ({getattr(r, 'status_code', 'rete')})")
-    pagina = r.text
-    scoperto = codice_spaggiari(pagina)
+def _apri(url: str):
+    try:
+        return rete.get(url, timeout=60)
+    except rete.VietatoDaRobots:
+        return None
+
+
+def _avvisi_in_pagina(f: Fonte, url_pagina: str, pagina: str, visti: set) -> list[Interpello]:
     oggi = datetime.now()
-    out, visti = [], set()
+    out = []
     for href, testo_a in _A.findall(pagina):
         titolo = pulisci(html.unescape(re.sub(r"<[^>]+>", " ", testo_a)))
-        url = urljoin(f.rif, html.unescape(href))
+        url = urljoin(url_pagina, html.unescape(href))
         if url in visti or len(titolo) < 12 or not e_interpello_docenti(titolo):
             continue
         if _GENERICO.match(titolo.strip(" .:")) or re.search(r"/sdg2/Interpelli/\w+/?$|cerca\?tag=", url):
             continue   # voce di menu o pagina indice, non un avviso
-        fine = _data_fine_nel_titolo(titolo) or _data_fine_nel_titolo(url)
+        fine = _data_fine(titolo) or _data_fine(url)
         if fine and fine < oggi:
             continue
         visti.add(url)
         if len(visti) > MAX_LINK:
             break
         testo = ""
-        rr = rete.get(url, timeout=60)
+        rr = None
+        if "spaggiari.eu" not in url:            # i documenti su Spaggiari non si scaricano: link nella mail
+            rr = _apri(url)
         if rr is not None and rr.status_code == 200:
             if rr.content[:4] == b"%PDF":
                 testo = testo_pdf(rr.content)
@@ -95,6 +91,46 @@ def leggi(f: Fonte) -> tuple[list[Interpello], str]:
             link_candidatura=f"mailto:{email}" if email else url,
             classi=classi, ordine=ordine_da(classi, f"{titolo}\n{testo}"),
             ore=ore_da(titolo) or ore_da(testo), scadenza=scad, email_candidatura=email,
-            note="" if scad else "Scadenza non trovata automaticamente: controllare l'avviso",
+            note="" if scad else "Scadenza: vedi avviso",
         ))
-    return out, scoperto
+    return out
+
+
+def leggi(f: Fonte) -> tuple[list[Interpello], bool]:
+    """Restituisce (interpelli trovati, True se la scuola ha una pagina interpelli leggibile)."""
+    visti: set = set()
+    if f.tipo == "sito":
+        try:
+            r = rete.get(f.rif)
+        except rete.VietatoDaRobots:
+            raise RuntimeError("pagina esclusa dal robots.txt del sito")
+        if r is None or r.status_code != 200:
+            raise RuntimeError(f"pagina del sito non raggiungibile ({getattr(r, 'status_code', 'rete')})")
+        return _avvisi_in_pagina(f, f.rif, r.text, visti), True
+
+    # tipo "scuola": home + pagine interpelli tipiche
+    base = "{0.scheme}://{0.netloc}".format(urlsplit(f.rif))
+    trovati: list[Interpello] = []
+    pagina_interpelli = False
+    r = _apri(f.rif)
+    if r is None or r.status_code != 200:
+        raise RuntimeError(f"sito non raggiungibile ({getattr(r, 'status_code', 'rete o robots.txt')})")
+    trovati += _avvisi_in_pagina(f, f.rif, r.text, visti)
+    # link nella home verso una pagina interpelli dedicata, poi gli indirizzi più comuni
+    candidate = [urljoin(f.rif, html.unescape(h)) for h, t in _A.findall(r.text)
+                 if re.search(r"interpell", h + t, re.I) and not re.search(r"spaggiari\.eu|cerca\?tag=", h)]
+    candidate += [base + p for p in PAGINE_TIPICHE]
+    provate = set()
+    for url in candidate:
+        if url in provate or urlsplit(url).netloc != urlsplit(base).netloc:
+            continue
+        provate.add(url)
+        rr = _apri(url)
+        if rr is None or rr.status_code != 200 or "interpell" not in rr.text.lower():
+            continue
+        if url.rstrip("/") != f.rif.rstrip("/"):
+            pagina_interpelli = True
+            trovati += _avvisi_in_pagina(f, url, rr.text, visti)
+        if len(provate) >= 8:
+            break
+    return trovati, pagina_interpelli

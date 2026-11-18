@@ -6,6 +6,12 @@ from typing import Optional
 
 import requests
 
+from . import robots
+
+
+class VietatoDaRobots(Exception):
+    """La pagina è esclusa dal robots.txt del sito: non la leggiamo."""
+
 UA = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) "
       "Chrome/130.0.0.0 Safari/537.36")
 
@@ -27,8 +33,18 @@ def _attendi() -> None:
     _ultima = time.monotonic()
 
 
+def _grezzo(url: str) -> Optional[requests.Response]:
+    _attendi()
+    try:
+        return _sessione.get(url, timeout=15)
+    except requests.RequestException:
+        return None
+
+
 def get(url: str, *, timeout: int = 30, tentativi: int = 2, **kw) -> Optional[requests.Response]:
-    """GET con un nuovo tentativo solo per errori di rete o 5xx. Restituisce None se fallisce."""
+    """GET rispettando robots.txt; nuovo tentativo solo per errori di rete o 5xx. None se fallisce."""
+    if not robots.consentito(url, _grezzo):
+        raise VietatoDaRobots(url)
     for i in range(tentativi):
         _attendi()
         try:
@@ -46,6 +62,8 @@ def get(url: str, *, timeout: int = 30, tentativi: int = 2, **kw) -> Optional[re
 
 
 def post_json(url: str, dati: dict, *, timeout: int = 30) -> Optional[requests.Response]:
+    if not robots.consentito(url, _grezzo):
+        raise VietatoDaRobots(url)
     _attendi()
     try:
         return _sessione.post(url, json=dati, timeout=timeout)

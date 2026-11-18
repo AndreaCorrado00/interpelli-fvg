@@ -94,7 +94,7 @@ def _tabella_html(elenco: list[Interpello], materie, nuovi: set) -> str:
 
 
 def componi(d: dict, miei: tuple, tutti_aperti: list, stato: dict, materie: dict, errori: list[str],
-            n_fonti: int) -> tuple[str, str, str]:
+            n_fonti: int, a_mano: list | None = None) -> tuple[str, str, str]:
     ok, dubbi = miei
     nuovi = {it.chiave for it in ok + dubbi if it.chiave not in stato}
     oggi = date.today().strftime("%d/%m/%Y")
@@ -121,6 +121,16 @@ def componi(d: dict, miei: tuple, tutti_aperti: list, stato: dict, materie: dict
         htm.append("<p style='margin-top:24px'>Interpelli aperti in cui la classe di concorso non è "
                    "scritta nel titolo, da controllare:</p>")
         htm.append(_tabella_html(dubbi, materie, nuovi))
+
+    if a_mano:
+        txt.append(f"\nScuole senza una fonte leggibile in automatico ({len(a_mano)}): "
+                   "gli interpelli sono solo sull'albo online, da controllare a mano.")
+        txt += [f"  - {f.istituto} ({f.provincia}): {f.link_pubblico or f.rif}" for f in a_mano]
+        voci = "".join(f"<li>{html.escape(f.istituto)} ({html.escape(f.provincia)}): "
+                       f"<a href='{html.escape(f.link_pubblico or f.rif)}'>albo online</a></li>" for f in a_mano)
+        htm.append(f"<p style='margin-top:24px'>Scuole senza una fonte leggibile in automatico "
+                   f"({len(a_mano)}): pubblicano gli interpelli solo sull'albo online, da controllare a mano.</p>"
+                   f"<ul style='font-size:13px'>{voci}</ul>")
 
     pie = (f"Fonti controllate: {n_fonti - len(errori)} su {n_fonti}. "
            f"Interpelli aperti per medie e superiori in totale: "

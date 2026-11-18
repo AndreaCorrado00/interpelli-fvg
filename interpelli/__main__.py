@@ -18,7 +18,7 @@ import yaml
 
 from .modello import Fonte, Interpello
 from .fonti import argo, axios, nuvola, sito, spaggiari
-from . import posta, riepilogo
+from . import posta, rete, riepilogo
 
 RADICE = Path(__file__).resolve().parent.parent
 FILE_FONTI = RADICE / "config" / "fonti.csv"
@@ -35,12 +35,11 @@ def carica_fonti(filtro: str = "") -> list[Fonte]:
     return [f for f in righe if not parti or any(p in f.istituto.lower() for p in parti)]
 
 
-def raccogli(fonti: list[Fonte]) -> tuple[list[Interpello], list[str], int]:
+def raccogli(fonti: list[Fonte]) -> tuple[list[Interpello], list[str], int, list[Fonte]]:
+    """Legge tutte le fonti. Restituisce interpelli, errori, numero di fonti e scuole da controllare a mano."""
     trovati: list[Interpello] = []
     errori: list[str] = []
-    albi_spaggiari = {f.rif.upper() for f in fonti if f.tipo == "spaggiari_albo"}
-    moduli_spaggiari = {f.rif.upper() for f in fonti if f.tipo == "spaggiari_interpelli"}
-    extra: list[Fonte] = []
+    coperti: set[str] = set()
     lettori = {
         "nuvola": nuvola.leggi,
         "spaggiari_interpelli": spaggiari.leggi_interpelli,
@@ -48,32 +47,33 @@ def raccogli(fonti: list[Fonte]) -> tuple[list[Interpello], list[str], int]:
         "argo_albo": argo.leggi_albo,
         "axios_albo": axios.leggi_albo,
     }
-    coda = list(fonti)
-    i = 0
-    while i < len(coda):
-        f = coda[i]
-        i += 1
+    for f in fonti:
+        if f.tipo == "manuale":      # nessuna fonte automatica: finisce nell'elenco da controllare a mano
+            continue
         try:
-            if f.tipo == "sito":
-                risultati, codice = sito.leggi(f)
-                if codice and codice not in albi_spaggiari:
-                    albi_spaggiari.add(codice)
-                    coda.append(Fonte(f.provincia, f.istituto, f.codice_mecc, "spaggiari_albo", codice,
-                                      note="albo scoperto automaticamente dal sito"))
-                if codice and codice not in moduli_spaggiari:
-                    moduli_spaggiari.add(codice)
-                    coda.append(Fonte(f.provincia, f.istituto, f.codice_mecc, "spaggiari_interpelli", codice,
-                                      note="modulo scoperto automaticamente dal sito"))
+            if f.tipo in ("sito", "scuola"):
+                risultati, pagina_dedicata = sito.leggi(f)
+                if f.tipo == "sito" or pagina_dedicata:
+                    coperti.add(f.istituto)
             elif f.tipo in lettori:
                 risultati = lettori[f.tipo](f)
+                coperti.add(f.istituto)
             else:
                 raise RuntimeError(f"tipo di fonte sconosciuto: {f.tipo}")
             trovati.extend(risultati)
             print(f"  ok  {f.tipo:22s} {f.istituto[:45]:45s} {len(risultati)}", flush=True)
+        except rete.VietatoDaRobots:
+            errori.append(f"{f.istituto} ({f.tipo}): pagina esclusa dal robots.txt")
+            print(f"  NO  {f.tipo:22s} {f.istituto[:45]:45s} robots.txt", flush=True)
         except Exception as e:  # una fonte che non risponde non deve fermare le altre
             errori.append(f"{f.istituto} ({f.tipo}): {e}")
             print(f"  ERR {f.tipo:22s} {f.istituto[:45]:45s} {e}", flush=True)
-    return trovati, errori, len(coda)
+    a_mano, visti = [], set()
+    for f in fonti:
+        if f.istituto not in coperti and f.istituto not in visti:
+            visti.add(f.istituto)
+            a_mano.append(f)
+    return trovati, errori, len(fonti), a_mano
 
 
 def ancora_aperto(it: Interpello, adesso: datetime) -> bool:
@@ -126,7 +126,7 @@ def main() -> int:
     fonti = carica_fonti(args.solo)
     print(f"Controllo {len(fonti)} fonti...", flush=True)
     t0 = time.time()
-    trovati, errori, n_fonti = raccogli(fonti)
+    trovati, errori, n_fonti, a_mano = raccogli(fonti)
     adesso = datetime.now()
     aperti = deduplica([it for it in trovati if ancora_aperto(it, adesso)])
     stato = carica_stato()
@@ -134,7 +134,7 @@ def main() -> int:
 
     for d in conf["destinatari"]:
         miei = riepilogo.filtra(aperti, d)
-        oggetto, corpo_html, corpo_txt = riepilogo.componi(d, miei, aperti, stato, materie, errori, n_fonti)
+        oggetto, corpo_html, corpo_txt = riepilogo.componi(d, miei, aperti, stato, materie, errori, n_fonti, a_mano)
         if args.prova or not d.get("email") or not d.get("attivo", True):
             out = RADICE / f"riepilogo_{d['nome'].lower()}.html"
             out.write_text(corpo_html, encoding="utf-8")

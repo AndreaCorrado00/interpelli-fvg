@@ -15,11 +15,11 @@ Gira su GitHub Actions: non serve tenere acceso nessun computer e non serve inst
 | tipo | cosa legge |
 |---|---|
 | `nuvola` | modulo interpelli di Nuvola (dati strutturati: classe, ore, scadenza) |
-| `spaggiari_interpelli` | modulo Interpelli di Spaggiari (dati strutturati) |
-| `spaggiari_albo` | albo online Spaggiari: atti degli ultimi 45 giorni con "interpello" nel titolo, PDF compreso |
+| `scuola` | home del sito della scuola e pagine interpelli più comuni (`/pagine/interpelli`, ecc.) |
+| `manuale` | nessuna fonte automatica: la scuola compare nella mail tra quelle da controllare a mano |
 | `argo_albo` | albo online Argo, stesso criterio |
 | `axios_albo` | albo online Axios (trasparenzascuole.it) |
-| `sito` | pagina "interpelli" sul sito della scuola; se la pagina contiene un codice Spaggiari, ne legge anche l'albo |
+| `sito` | pagina "interpelli" nota sul sito della scuola |
 
 Per gli avvisi pubblicati all'albo lo script apre il PDF e ricava classe di concorso, ore, scadenza
 e indirizzo mail per la candidatura. Scarta esiti, individuazioni, graduatorie, annullamenti, avvisi
@@ -60,10 +60,13 @@ In locale: `pip install -r requirements.txt` poi `python -m interpelli --prova`
 
 ## Limiti noti
 
-- Le scadenze degli avvisi negli albi sono ricavate dal testo del PDF: se un avviso è una scansione
-  o scrive la data in modo insolito, compare con "scadenza non indicata" e va controllato a mano.
-- Albi Axios: si leggono solo gli ultimi atti della prima pagina; con due controlli al giorno basta.
-- Fonti ancora da trovare: IC Brugnera-Prata, IC Fiume Veneto, IC Meduna-Tagliamento-Casarsa,
-  ISIS D'Annunzio-Fabiani (dominio non più della scuola), ISIS Galilei-Cossar (certificato del sito
-  non valido). Per aggiungerle basta una riga in `config/fonti.csv`.
+- **Spaggiari e Axios** proteggono i loro server con Cloudflare e bloccano i programmi automatici; i siti
+  scolastici fatti con Spaggiari escludono l'albo (`/albo-online`) nel robots.txt. Lo script rispetta
+  entrambe le cose: per queste scuole legge solo le sezioni consentite (home, `/pagine/`, `/servizi`) dove
+  molte scuole pubblicano gli interpelli. Le scuole in cui non trova una pagina interpelli compaiono in
+  fondo alla mail, con il link all'albo da controllare a mano.
+- Per gli avvisi che stanno su Spaggiari la scadenza non viene letta: la mail riporta "vedi avviso".
+- Le scadenze ricavate dai PDF possono mancare se l'avviso è una scansione o scrive la data in modo insolito.
+- Fonti ancora da trovare: ISIS D'Annunzio-Fabiani (dominio non più della scuola), ISIS Galilei-Cossar
+  (certificato del sito non valido), siti di IC Della Torre-Verni e IC Cormons.
 - I link di alcune pagine cambiano ogni anno scolastico (es. Liceo Stellini): vanno aggiornati a settembre.
