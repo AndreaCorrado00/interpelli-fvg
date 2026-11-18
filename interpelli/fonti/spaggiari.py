@@ -41,7 +41,15 @@ def leggi_interpelli(f: Fonte) -> list[Interpello]:
         r = rete.get(f"{BASE}/Interpelli/{codice}?page={pagina}")
         if r is None:
             raise RuntimeError("Spaggiari non raggiungibile")
-        if r.status_code in (403, 404):
+        if r.status_code == 404:
+            return []
+        if r.status_code == 403:
+            if "Forbidden" in r.text and "data-page" not in r.text and pagina == 1:
+                # 403 è anche la risposta normale per le scuole senza modulo interpelli:
+                # lo distinguiamo dal blocco controllando che l'albo della stessa scuola risponda
+                prova = rete.get(f"{BASE}/AlboOnline/{codice}")
+                if prova is not None and prova.status_code == 403:
+                    raise RuntimeError("Spaggiari ha rifiutato la richiesta (403): possibile blocco")
             return []
         props = _props(r.text)
         blocco = props.get("interpelli") or {}

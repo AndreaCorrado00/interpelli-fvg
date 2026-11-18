@@ -31,13 +31,15 @@ GIORNI_SENZA_SCADENZA = 10   # avvisi senza scadenza leggibile: mostrati solo se
 def carica_fonti(filtro: str = "") -> list[Fonte]:
     with open(FILE_FONTI, newline="", encoding="utf-8") as fh:
         righe = [Fonte(**{k: (v or "").strip() for k, v in r.items()}) for r in csv.DictReader(fh)]
-    return [f for f in righe if filtro.lower() in f.istituto.lower()]
+    parti = [p.strip().lower() for p in filtro.split(",") if p.strip()]
+    return [f for f in righe if not parti or any(p in f.istituto.lower() for p in parti)]
 
 
 def raccogli(fonti: list[Fonte]) -> tuple[list[Interpello], list[str], int]:
     trovati: list[Interpello] = []
     errori: list[str] = []
     albi_spaggiari = {f.rif.upper() for f in fonti if f.tipo == "spaggiari_albo"}
+    moduli_spaggiari = {f.rif.upper() for f in fonti if f.tipo == "spaggiari_interpelli"}
     extra: list[Fonte] = []
     lettori = {
         "nuvola": nuvola.leggi,
@@ -56,10 +58,12 @@ def raccogli(fonti: list[Fonte]) -> tuple[list[Interpello], list[str], int]:
                 risultati, codice = sito.leggi(f)
                 if codice and codice not in albi_spaggiari:
                     albi_spaggiari.add(codice)
-                    nuova = Fonte(f.provincia, f.istituto, f.codice_mecc, "spaggiari_albo", codice,
-                                  note="albo scoperto automaticamente dal sito")
-                    coda.append(nuova)
-                    extra.append(nuova)
+                    coda.append(Fonte(f.provincia, f.istituto, f.codice_mecc, "spaggiari_albo", codice,
+                                      note="albo scoperto automaticamente dal sito"))
+                if codice and codice not in moduli_spaggiari:
+                    moduli_spaggiari.add(codice)
+                    coda.append(Fonte(f.provincia, f.istituto, f.codice_mecc, "spaggiari_interpelli", codice,
+                                      note="modulo scoperto automaticamente dal sito"))
             elif f.tipo in lettori:
                 risultati = lettori[f.tipo](f)
             else:

@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import html
 import re
-from datetime import datetime
+from datetime import datetime, timedelta
 from urllib.parse import urljoin
 
 from .. import rete
@@ -25,6 +25,33 @@ def codice_spaggiari(testo_html: str) -> str:
     return ""
 
 
+_FINO_AL = re.compile(r"fino\s+al?\s*(\d{1,2})[/.\-]?(\d{1,2})[/.\-]?(\d{4})", re.I)
+_DATE = re.compile(r"\b(\d{1,2})[/.\-](\d{1,2})[/.\-](20\d{2})\b")
+_GENERICO = re.compile(r"^(avvisi\s+e\s+)?interpell[oi](\s+(supplenze|docenti|news|ex\s*mad|info))?$", re.I)
+
+
+def _data_fine_nel_titolo(titolo_o_url: str):
+    m = _FINO_AL.search(titolo_o_url.replace("-", " "))
+    if not m:
+        m = re.search(r"fino-al-(\d{2})(\d{2})(\d{4})", titolo_o_url)
+    if m:
+        try:
+            return datetime(int(m.group(3)), int(m.group(2)), int(m.group(1)), 23, 59)
+        except ValueError:
+            return None
+    return None
+
+
+def _data_piu_recente(testo: str):
+    date = []
+    for g, me, a in _DATE.findall(testo):
+        try:
+            date.append(datetime(int(a), int(me), int(g)))
+        except ValueError:
+            pass
+    return max(date) if date else None
+
+
 def leggi(f: Fonte) -> tuple[list[Interpello], str]:
     """Restituisce gli interpelli trovati e l'eventuale codice Spaggiari scoperto nella pagina."""
     r = rete.get(f.rif)
@@ -39,6 +66,11 @@ def leggi(f: Fonte) -> tuple[list[Interpello], str]:
         url = urljoin(f.rif, html.unescape(href))
         if url in visti or len(titolo) < 12 or not e_interpello_docenti(titolo):
             continue
+        if _GENERICO.match(titolo.strip(" .:")) or re.search(r"/sdg2/Interpelli/\w+/?$|cerca\?tag=", url):
+            continue   # voce di menu o pagina indice, non un avviso
+        fine = _data_fine_nel_titolo(titolo) or _data_fine_nel_titolo(url)
+        if fine and fine < oggi:
+            continue
         visti.add(url)
         if len(visti) > MAX_LINK:
             break
@@ -52,6 +84,9 @@ def leggi(f: Fonte) -> tuple[list[Interpello], str]:
         scad = scadenza_da(f"{titolo}\n{testo}")
         if scad and scad < oggi:
             continue
+        recente = _data_piu_recente(f"{titolo} {testo}")
+        if not scad and recente and recente < oggi - timedelta(days=30):
+            continue   # avviso vecchio rimasto in pagina
         classi = classi_concorso(titolo) or classi_concorso(testo)
         email = email_da(testo)
         out.append(Interpello(

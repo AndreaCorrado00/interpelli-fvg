@@ -18,10 +18,14 @@ def leggi_albo(f: Fonte) -> list[Interpello]:
     guid = f.rif
     pubblico = f.link_pubblico or BASE
     rete.get(pubblico)                                          # apre la sessione come farebbe il browser
-    rete.get(f"{BASE}/Ajax/APP_Ajax_Get.aspx?action=INIT_APD&Others={guid}")
-    r = rete.get(f"{BASE}/Ajax/APP_Ajax_Get.aspx?action=GET_APD_TABLE&Others={guid}")
+    ajax = {"X-Requested-With": "XMLHttpRequest", "Referer": pubblico,
+            "Accept": "application/json, text/javascript, */*; q=0.01"}
+    rete.get(f"{BASE}/Ajax/APP_Ajax_Get.aspx?action=INIT_APD&Others={guid}", headers=ajax)
+    r = rete.get(f"{BASE}/Ajax/APP_Ajax_Get.aspx?action=GET_APD_TABLE&Others={guid}", headers=ajax)
     if r is None or r.status_code != 200 or "Pubblicato in data" not in r.text:
-        raise RuntimeError("albo Axios non disponibile o formato cambiato")
+        stato = getattr(r, "status_code", "rete")
+        inizio = (r.text[:80].replace("\n", " ") if r is not None else "")
+        raise RuntimeError(f"albo Axios non disponibile ({stato}): {inizio}")
     limite = datetime.now() - timedelta(days=GIORNI_ALBO)
     out = []
     for data_s, oggetto in _RIGA.findall(r.text):

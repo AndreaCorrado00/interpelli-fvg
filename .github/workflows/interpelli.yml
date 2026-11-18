@@ -12,6 +12,10 @@ on:
         description: "Solo prova (non manda mail, mostra il riepilogo nel log)"
         type: boolean
         default: false
+      solo:
+        description: "Solo questi istituti (parti del nome separate da virgola), per verifiche"
+        type: string
+        default: ""
 
 permissions:
   contents: write   # serve per salvare stato/visti.json (interpelli già segnalati)
@@ -38,7 +42,7 @@ jobs:
           TZ: Europe/Rome
         run: |
           if [ "${{ inputs.prova }}" = "true" ]; then
-            python -m interpelli --prova
+            python -m interpelli --prova --solo "${{ inputs.solo }}"
           else
             python -m interpelli
           fi

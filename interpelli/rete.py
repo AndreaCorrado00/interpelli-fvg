@@ -6,11 +6,15 @@ from typing import Optional
 
 import requests
 
-UA = ("Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) "
-      "Chrome/124.0 Safari/537.36 interpelli-fvg/1.0")
+UA = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) "
+      "Chrome/130.0.0.0 Safari/537.36")
 
 _sessione = requests.Session()
-_sessione.headers.update({"User-Agent": UA, "Accept-Language": "it-IT,it;q=0.9"})
+_sessione.headers.update({
+    "User-Agent": UA,
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+    "Accept-Language": "it-IT,it;q=0.9,en;q=0.8",
+})
 _ultima = 0.0
 PAUSA = 0.6  # secondi tra una richiesta e l'altra
 
