@@ -7,6 +7,8 @@ from __future__ import annotations
 
 import argparse
 import csv
+import traceback
+import threading
 import json
 import os
 import sys
@@ -35,6 +37,32 @@ def carica_fonti(filtro: str = "") -> list[Fonte]:
     return [f for f in righe if not parti or any(p in f.istituto.lower() for p in parti)]
 
 
+MAX_SECONDI_FONTE = 180
+
+
+def con_limite(funz, arg, secondi):
+    """Esegue funz(arg) in un thread separato: se non finisce entro `secondi` la fonte viene saltata."""
+    esito = {}
+
+    def corpo():
+        try:
+            esito["ok"] = funz(arg)
+        except BaseException as e:   # riportato al chiamante
+            esito["err"] = e
+
+    t = threading.Thread(target=corpo, daemon=True)
+    t.start()
+    t.join(secondi)
+    if t.is_alive():
+        print(f"  ... {arg.istituto[:45]} bloccata da {secondi}s, punto in cui si trova:", flush=True)
+        for riga in traceback.format_stack(sys._current_frames()[t.ident])[-4:]:
+            print("      " + riga.strip().replace("\n", " | "), flush=True)
+        raise RuntimeError(f"nessuna risposta entro {secondi} secondi")
+    if "err" in esito:
+        raise esito["err"]
+    return esito["ok"]
+
+
 def raccogli(fonti: list[Fonte]) -> tuple[list[Interpello], list[str], int, list[Fonte]]:
     """Legge tutte le fonti. Restituisce interpelli, errori, numero di fonti e scuole da controllare a mano."""
     trovati: list[Interpello] = []
@@ -47,19 +75,21 @@ def raccogli(fonti: list[Fonte]) -> tuple[list[Interpello], list[str], int, list
         "argo_albo": argo.leggi_albo,
         "axios_albo": axios.leggi_albo,
     }
+    def leggi_fonte(f):
+        if f.tipo in ("sito", "scuola"):
+            risultati, pagina_dedicata = sito.leggi(f)
+            return risultati, f.tipo == "sito" or pagina_dedicata
+        if f.tipo in lettori:
+            return lettori[f.tipo](f), True
+        raise RuntimeError(f"tipo di fonte sconosciuto: {f.tipo}")
+
     for f in fonti:
         if f.tipo == "manuale":      # nessuna fonte automatica: finisce nell'elenco da controllare a mano
             continue
         try:
-            if f.tipo in ("sito", "scuola"):
-                risultati, pagina_dedicata = sito.leggi(f)
-                if f.tipo == "sito" or pagina_dedicata:
-                    coperti.add(f.istituto)
-            elif f.tipo in lettori:
-                risultati = lettori[f.tipo](f)
+            risultati, coperta = con_limite(leggi_fonte, f, MAX_SECONDI_FONTE)
+            if coperta:
                 coperti.add(f.istituto)
-            else:
-                raise RuntimeError(f"tipo di fonte sconosciuto: {f.tipo}")
             trovati.extend(risultati)
             print(f"  ok  {f.tipo:22s} {f.istituto[:45]:45s} {len(risultati)}", flush=True)
         except rete.VietatoDaRobots:
