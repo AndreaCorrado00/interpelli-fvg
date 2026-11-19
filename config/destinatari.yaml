@@ -19,3 +19,4 @@ destinatari:
     classi: [A012]         # lettere alle superiori (per le medie aggiungere A022 e secondaria_1)
     ordini: [secondaria_2]
     mostra_senza_classe: true
+    escludi_a_mano: [lingua slovena]
