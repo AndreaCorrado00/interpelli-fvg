@@ -15,7 +15,7 @@ destinatari:
     escludi_a_mano: [lingua slovena]
   - nome: Maria
     email: maria.sepulcri.08@gmail.com
-    attivo: false          # da attivare dopo il collaudo
-    classi: [A012, A022]   # A012 lettere alle superiori, A022 lettere alle medie
-    ordini: [secondaria_1, secondaria_2]
+    attivo: true
+    classi: [A012]         # lettere alle superiori (per le medie aggiungere A022 e secondaria_1)
+    ordini: [secondaria_2]
     mostra_senza_classe: true
