@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import faulthandler
 import traceback
 import threading
 import json
@@ -51,8 +52,11 @@ def con_limite(funz, arg, secondi):
             esito["err"] = e
 
     t = threading.Thread(target=corpo, daemon=True)
+    # se il blocco tiene fermo tutto l'interprete, faulthandler scrive comunque dove si trova
+    faulthandler.dump_traceback_later(secondi + 30, repeat=True)
     t.start()
     t.join(secondi)
+    faulthandler.cancel_dump_traceback_later()
     if t.is_alive():
         print(f"  ... {arg.istituto[:45]} bloccata da {secondi}s, punto in cui si trova:", flush=True)
         for riga in traceback.format_stack(sys._current_frames()[t.ident])[-4:]:

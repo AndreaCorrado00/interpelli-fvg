@@ -19,8 +19,17 @@ Scrivi "Rete disponibile dopo $($i * 10) secondi."
 # Configurazione e filtri si modificano su GitHub: prima di ogni controllo scarico le modifiche
 Scrivi (git pull --rebase --autostash 2>&1)
 
-& ".\.venv\Scripts\python.exe" -m interpelli 2>&1 | ForEach-Object { Scrivi $_ }
-$esito = $LASTEXITCODE
+# Python scrive direttamente su file (niente pipeline di PowerShell che possa bloccarsi)
+$Out = Join-Path $Cartella "log\python.log"
+$Err = Join-Path $Cartella "log\python_errori.log"
+$p = Start-Process -FilePath ".\.venv\Scripts\python.exe" -ArgumentList "-u", "-m", "interpelli" `
+  -NoNewWindow -PassThru -RedirectStandardOutput $Out -RedirectStandardError $Err
+$null = $p.Handle   # necessario per leggere ExitCode a fine processo
+$p | Wait-Process -Timeout 2400 -ErrorAction SilentlyContinue
+if (-not $p.HasExited) { Scrivi "Controllo fermo da 40 minuti: interrotto."; $p | Stop-Process -Force }
+$esito = $p.ExitCode
+Scrivi (Get-Content $Out -Encoding utf8)
+if ((Test-Path $Err) -and (Get-Item $Err).Length -gt 0) { Scrivi "--- errori ---"; Scrivi (Get-Content $Err -Encoding utf8) }
 Scrivi "Fine controllo, esito $esito."
 
 # Salvo su GitHub l'elenco degli interpelli gia segnalati (per l'etichetta NUOVO)
